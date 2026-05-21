@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS network_devices (
     open_ports JSON,
     is_camera BOOLEAN DEFAULT FALSE,
     camera_confidence VARCHAR(50),
+    device_type VARCHAR(50) DEFAULT 'unknown',
     discovered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
 );

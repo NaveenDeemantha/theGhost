@@ -5,6 +5,7 @@ class WifiNetwork {
   final String encryption;
   final int frequency;
   final bool isConnected;
+  final bool hasWps;
 
   WifiNetwork({
     required this.ssid,
@@ -13,6 +14,7 @@ class WifiNetwork {
     required this.encryption,
     required this.frequency,
     this.isConnected = false,
+    this.hasWps = false,
   });
 
   Map<String, dynamic> toJson() => {

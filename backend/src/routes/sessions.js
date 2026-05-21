@@ -28,4 +28,23 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get devices from the most recent session for a given SSID
+router.get('/last/:ssid', async (req, res) => {
+  try {
+    const [sessions] = await db.query(
+      'SELECT id FROM scan_sessions WHERE connected_ssid = ? ORDER BY scanned_at DESC LIMIT 1',
+      [req.params.ssid]
+    );
+    if (!sessions.length) return res.json([]);
+
+    const [devices] = await db.query(
+      'SELECT ip_address, device_type, is_camera FROM network_devices WHERE session_id = ?',
+      [sessions[0].id]
+    );
+    res.json(devices);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

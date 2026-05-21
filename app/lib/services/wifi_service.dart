@@ -1,5 +1,6 @@
 import 'package:wifi_scan/wifi_scan.dart';
 import 'package:network_info_plus/network_info_plus.dart';
+import 'package:wifi_iot/wifi_iot.dart' hide WifiNetwork;
 import '../models/wifi_network.dart';
 
 class WifiService {
@@ -34,6 +35,7 @@ class WifiService {
         signalStrength: ap.level,
         encryption: encryption,
         frequency: ap.frequency,
+        hasWps: caps.contains('WPS'),
       );
     }).toList();
   }
@@ -47,4 +49,42 @@ class WifiService {
       'subnet': await _networkInfo.getWifiSubmask(),
     };
   }
+
+  static Future<WifiConnectionResult> connectToNetwork({
+    required String ssid,
+    required String encryption,
+    String? password,
+  }) async {
+    try {
+      final isOpen = encryption == 'Open';
+
+      NetworkSecurity security;
+      if (isOpen) {
+        security = NetworkSecurity.NONE;
+      } else if (encryption == 'WEP') {
+        security = NetworkSecurity.WEP;
+      } else {
+        security = NetworkSecurity.WPA;
+      }
+
+      final success = await WiFiForIoTPlugin.connect(
+        ssid,
+        password: isOpen ? null : password,
+        security: security,
+        joinOnce: false,
+        withInternet: true,
+      );
+
+      if (success) return WifiConnectionResult.success;
+      return WifiConnectionResult.failed;
+    } catch (e) {
+      return WifiConnectionResult.error;
+    }
+  }
+
+  static Future<void> disconnect() async {
+    await WiFiForIoTPlugin.disconnect();
+  }
 }
+
+enum WifiConnectionResult { success, failed, error }

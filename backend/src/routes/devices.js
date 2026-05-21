@@ -14,8 +14,8 @@ router.post('/', async (req, res) => {
     for (const d of devices) {
       const [result] = await db.query(
         `INSERT INTO network_devices
-         (session_id, ip_address, mac_address, manufacturer, hostname, open_ports, is_camera, camera_confidence)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (session_id, ip_address, mac_address, manufacturer, hostname, open_ports, is_camera, camera_confidence, device_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           sessionId,
           d.ipAddress,
@@ -25,6 +25,7 @@ router.post('/', async (req, res) => {
           JSON.stringify(d.openPorts || []),
           d.isCamera,
           d.cameraConfidence,
+          d.deviceType || 'unknown',
         ]
       );
 
@@ -60,6 +61,19 @@ router.get('/cameras', async (req, res) => {
   try {
     const [rows] = await db.query(
       'SELECT * FROM camera_devices ORDER BY detected_at DESC'
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get cameras for a specific network SSID
+router.get('/cameras/network/:ssid', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM camera_devices WHERE network_ssid = ? ORDER BY detected_at DESC',
+      [req.params.ssid]
     );
     res.json(rows);
   } catch (err) {
