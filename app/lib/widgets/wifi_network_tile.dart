@@ -12,18 +12,34 @@ class WifiNetworkTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isConnected = network.isConnected;
-    final borderColor = isConnected ? kGreen : kTerminalBorder;
+    final isOpen = network.isOpen;
+
+    final Color leftBorder;
+    final Color bgColor;
+    final Color borderColor;
+
+    if (isConnected) {
+      leftBorder = kGreen;
+      bgColor = kGreenFaint;
+      borderColor = kGreen;
+    } else if (isOpen) {
+      leftBorder = kRed;
+      bgColor = kRed.withAlpha(15);
+      borderColor = kRed.withAlpha(60);
+    } else {
+      leftBorder = _encryptionColor(network.encryption);
+      bgColor = kTerminalCard;
+      borderColor = kTerminalBorder;
+    }
 
     return GestureDetector(
       onTap: () => _handleTap(context),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
         decoration: BoxDecoration(
-          color: isConnected ? kGreenFaint : kTerminalCard,
+          color: bgColor,
           border: Border(
-            left: BorderSide(
-                color: isConnected ? kGreen : _encryptionColor(network.encryption),
-                width: 3),
+            left: BorderSide(color: leftBorder, width: 3),
             top: BorderSide(color: borderColor),
             right: BorderSide(color: borderColor),
             bottom: BorderSide(color: borderColor),
@@ -32,8 +48,7 @@ class WifiNetworkTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           children: [
-            // Signal bars
-            _SignalBars(bars: network.signalBars, isConnected: isConnected),
+            _SignalBars(bars: network.signalBars, isConnected: isConnected, isOpen: isOpen),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -45,7 +60,7 @@ class WifiNetworkTile extends StatelessWidget {
                         child: Text(
                           network.ssid.isEmpty ? '[HIDDEN]' : network.ssid,
                           style: TextStyle(
-                            color: isConnected ? kGreen : kWhiteText,
+                            color: isConnected ? kGreen : (isOpen ? kRed : kWhiteText),
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -53,18 +68,8 @@ class WifiNetworkTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (isConnected)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: kGreen),
-                            color: kGreenFaint,
-                          ),
-                          child: const Text('ACTIVE',
-                              style: TextStyle(
-                                  color: kGreen, fontSize: 9,
-                                  fontFamily: 'monospace', letterSpacing: 1.5)),
-                        ),
+                      if (isConnected) _Badge('ACTIVE', kGreen, kGreenFaint),
+                      if (isOpen && !isConnected) _Badge('OPEN!', kRed, kRed.withAlpha(20)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -72,11 +77,23 @@ class WifiNetworkTile extends StatelessWidget {
                     spacing: 6,
                     runSpacing: 3,
                     children: [
-                      _Tag(label: network.encryption, color: _encryptionColor(network.encryption)),
-                      _Tag(label: network.frequency >= 5000 ? '5GHz' : '2.4GHz', color: kGrayText),
+                      _Tag(
+                        label: isOpen ? 'UNPROTECTED' : network.encryption,
+                        color: _encryptionColor(network.encryption),
+                      ),
+                      _Tag(
+                        label: network.frequency >= 5000 ? '5GHz' : '2.4GHz',
+                        color: kGrayText,
+                      ),
+                      if (network.channel > 0)
+                        _Tag(label: 'CH${network.channel}', color: kGrayText),
                       _Tag(label: '${network.signalStrength}dBm', color: kGrayText),
-                      if (network.hasWps)
-                        _Tag(label: 'WPS!', color: kOrange, blink: true),
+                      _Tag(
+                        label: network.distanceLabel,
+                        color: kCyan,
+                        icon: Icons.straighten_rounded,
+                      ),
+                      if (network.hasWps) _Tag(label: 'WPS!', color: kOrange),
                     ],
                   ),
                 ],
@@ -112,23 +129,57 @@ class WifiNetworkTile extends StatelessWidget {
 
   Color _encryptionColor(String enc) {
     switch (enc.toUpperCase()) {
-      case 'OPEN':   return Colors.green;
-      case 'WEP':    return kOrange;
-      case 'WPA3':   return kCyan;
-      case 'WPA2':   return kGreenDim;
-      default:       return kGrayText;
+      case 'OPEN':
+        return kRed;
+      case 'WEP':
+        return kOrange;
+      case 'WPA3':
+        return kCyan;
+      case 'WPA2':
+        return kGreenDim;
+      default:
+        return kGrayText;
     }
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String text;
+  final Color fg;
+  final Color bg;
+  const _Badge(this.text, this.fg, this.bg);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        border: Border.all(color: fg),
+        color: bg,
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: fg,
+          fontSize: 9,
+          fontFamily: 'monospace',
+          letterSpacing: 1.5,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }
 
 class _SignalBars extends StatelessWidget {
   final int bars;
   final bool isConnected;
-  const _SignalBars({required this.bars, required this.isConnected});
+  final bool isOpen;
+  const _SignalBars({required this.bars, required this.isConnected, required this.isOpen});
 
   @override
   Widget build(BuildContext context) {
-    final color = isConnected ? kGreen : kGreenDim;
+    final color = isConnected ? kGreen : (isOpen ? kRed : kGreenDim);
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -148,22 +199,32 @@ class _SignalBars extends StatelessWidget {
 class _Tag extends StatelessWidget {
   final String label;
   final Color color;
-  final bool blink;
-  const _Tag({required this.label, required this.color, this.blink = false});
+  final IconData? icon;
+  const _Tag({required this.label, required this.color, this.icon});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        border: Border.all(color: color.withAlpha(120)),
-      ),
-      child: Text(label,
-          style: TextStyle(
+      decoration: BoxDecoration(border: Border.all(color: color.withAlpha(120))),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 8, color: color),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            label,
+            style: TextStyle(
               color: color,
               fontSize: 9,
               fontFamily: 'monospace',
-              letterSpacing: 0.5)),
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

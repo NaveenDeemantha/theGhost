@@ -4,6 +4,7 @@ import 'wifi_scan_screen.dart';
 import 'device_scan_screen.dart';
 import 'camera_feeds_screen.dart';
 import 'history_screen.dart';
+import 'motion_radar_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WifiScanScreen(),
     DeviceScanScreen(),
     CameraFeedsScreen(),
+    MotionRadarScreen(),
     HistoryScreen(),
   ];
 
@@ -26,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     (icon: Icons.wifi_find_rounded,   label: 'NETWORKS'),
     (icon: Icons.radar_rounded,        label: 'SCANNER'),
     (icon: Icons.videocam_rounded,     label: 'CAMERAS'),
+    (icon: Icons.sensors_rounded,      label: 'RADAR'),
     (icon: Icons.history_rounded,      label: 'HISTORY'),
   ];
 
