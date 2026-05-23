@@ -1,20 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 
-// Brand colours
-const kNavyDark   = Color(0xFF0B1426);
-const kNavy       = Color(0xFF1B2A4A);
-const kNavyLight  = Color(0xFF2D3F6B);
-const kWhite      = Color(0xFFFFFFFF);
-const kOffWhite   = Color(0xFFE8EDF5);
-const kAccent     = Color(0xFF4A90D9);   // bright navy-blue accent
-const kErrorRed   = Color(0xFFCF6679);
+// ── Hacker Terminal Palette ──────────────────────────────────────────────────
+const kTerminalBg   = Color(0xFF0A0A0A);   // pure terminal black
+const kTerminalCard = Color(0xFF0F0F0F);   // card surface
+const kTerminalBorder = Color(0xFF1C1C1C); // subtle border
+const kGreen        = Color(0xFF00FF41);   // Matrix green (primary)
+const kGreenDim     = Color(0xFF00A025);   // dimmer green
+const kGreenFaint   = Color(0xFF003310);   // very dark green tint
+const kCyan         = Color(0xFF00FFFF);   // cyan (info / secondary)
+const kOrange       = Color(0xFFFF6600);   // warning / cameras
+const kRed          = Color(0xFFFF0033);   // error / danger
+const kWhiteText    = Color(0xFFE8E8E8);   // primary text
+const kGrayText     = Color(0xFF707070);   // secondary text
+const kDimText      = Color(0xFF404040);   // disabled / dim
+
+// Aliases used by older widgets so we don't have to rename every reference
+const kNavyDark   = kTerminalBg;
+const kNavy       = kTerminalCard;
+const kNavyLight  = kTerminalBorder;
+const kAccent     = kGreen;
+const kWhite      = kWhiteText;
+const kOffWhite   = Color(0xFFB0C8B0);     // slightly greenish white
+const kErrorRed   = kRed;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: kNavyDark,
+    statusBarColor: kTerminalBg,
     statusBarIconBrightness: Brightness.light,
   ));
   runApp(const TheGhostApp());
@@ -29,153 +43,186 @@ class TheGhostApp extends StatelessWidget {
       title: 'TheGhost',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
-      home: const HomeScreen(),
+      home: const SplashScreen(),
     );
   }
 
   ThemeData _buildTheme() {
-    final base = ColorScheme.dark(
-      primary: kAccent,
-      onPrimary: kWhite,
-      primaryContainer: kNavyLight,
-      onPrimaryContainer: kWhite,
-      secondary: kAccent,
-      onSecondary: kWhite,
-      secondaryContainer: kNavy,
-      onSecondaryContainer: kOffWhite,
-      surface: kNavy,
-      onSurface: kWhite,
-      surfaceContainerHighest: kNavyLight,
-      error: kErrorRed,
-      onError: kWhite,
-      outline: const Color(0xFF5A7AAF),
-      outlineVariant: const Color(0xFF2D3F6B),
+    final cs = ColorScheme.dark(
+      primary: kGreen,
+      onPrimary: kTerminalBg,
+      primaryContainer: kGreenFaint,
+      onPrimaryContainer: kGreen,
+      secondary: kCyan,
+      onSecondary: kTerminalBg,
+      secondaryContainer: const Color(0xFF001A1A),
+      onSecondaryContainer: kCyan,
+      surface: kTerminalCard,
+      onSurface: kWhiteText,
+      surfaceContainerHighest: kTerminalBorder,
+      error: kRed,
+      onError: kWhiteText,
+      outline: const Color(0xFF2A2A2A),
+      outlineVariant: const Color(0xFF1A1A1A),
     );
 
     return ThemeData(
       useMaterial3: true,
-      colorScheme: base,
-      scaffoldBackgroundColor: kNavyDark,
+      colorScheme: cs,
+      scaffoldBackgroundColor: kTerminalBg,
+      fontFamily: 'monospace',
       appBarTheme: const AppBarTheme(
-        backgroundColor: kNavyDark,
-        foregroundColor: kWhite,
+        backgroundColor: kTerminalBg,
+        foregroundColor: kGreen,
         elevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
-          color: kWhite,
-          fontSize: 18,
+          color: kGreen,
+          fontSize: 15,
           fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
+          fontFamily: 'monospace',
+          letterSpacing: 2,
+        ),
+        iconTheme: IconThemeData(color: kGreen),
+        actionsIconTheme: IconThemeData(color: kGreen),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: kTerminalBg,
+          statusBarIconBrightness: Brightness.light,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: kNavyDark,
-        selectedItemColor: kAccent,
-        unselectedItemColor: Color(0xFF5A7AAF),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: kNavyDark,
-        indicatorColor: kNavyLight,
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: kAccent);
-          }
-          return const IconThemeData(color: Color(0xFF5A7AAF));
-        }),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const TextStyle(color: kAccent, fontSize: 12, fontWeight: FontWeight.w600);
-          }
-          return const TextStyle(color: Color(0xFF5A7AAF), fontSize: 12);
-        }),
-      ),
       cardTheme: CardThemeData(
-        color: kNavy,
+        color: kTerminalCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: kNavyLight, width: 1),
+          borderRadius: BorderRadius.circular(4),
+          side: const BorderSide(color: kTerminalBorder, width: 1),
         ),
       ),
       listTileTheme: const ListTileThemeData(
         tileColor: Colors.transparent,
-        textColor: kWhite,
-        iconColor: kAccent,
+        textColor: kWhiteText,
+        iconColor: kGreen,
       ),
-      dividerTheme: const DividerThemeData(color: kNavyLight),
+      dividerTheme: const DividerThemeData(
+          color: kTerminalBorder, thickness: 1),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: kNavy,
-        hintStyle: const TextStyle(color: Color(0xFF5A7AAF)),
-        prefixIconColor: const Color(0xFF5A7AAF),
+        fillColor: const Color(0xFF0D0D0D),
+        hintStyle: const TextStyle(color: kDimText, fontFamily: 'monospace'),
+        prefixIconColor: kGrayText,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: kNavyLight),
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: kTerminalBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: kNavyLight),
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: kTerminalBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: kAccent, width: 2),
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: kGreen, width: 1),
         ),
+        labelStyle: const TextStyle(color: kGrayText, fontFamily: 'monospace'),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: kAccent,
-        foregroundColor: kWhite,
+        backgroundColor: kGreen,
+        foregroundColor: kTerminalBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: kAccent,
-          foregroundColor: kWhite,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          backgroundColor: kGreenFaint,
+          foregroundColor: kGreen,
+          side: const BorderSide(color: kGreen),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          textStyle: const TextStyle(fontFamily: 'monospace', letterSpacing: 1),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: kAccent,
-          foregroundColor: kWhite,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          backgroundColor: kGreen,
+          foregroundColor: kTerminalBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          textStyle: const TextStyle(
+              fontFamily: 'monospace', fontWeight: FontWeight.bold, letterSpacing: 1),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: kGreen,
+          side: const BorderSide(color: kGreen),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          textStyle: const TextStyle(fontFamily: 'monospace', letterSpacing: 1),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: kGreen,
+          textStyle: const TextStyle(fontFamily: 'monospace'),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: kNavy,
-        selectedColor: kNavyLight,
-        labelStyle: const TextStyle(color: kWhite, fontSize: 12),
-        side: const BorderSide(color: kNavyLight),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: kGreenFaint,
+        selectedColor: kGreenFaint,
+        labelStyle: const TextStyle(color: kGreen, fontSize: 11, fontFamily: 'monospace'),
+        side: const BorderSide(color: kGreenDim),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
       tabBarTheme: const TabBarThemeData(
-        labelColor: kAccent,
-        unselectedLabelColor: Color(0xFF5A7AAF),
-        indicatorColor: kAccent,
-        dividerColor: kNavyLight,
+        labelColor: kGreen,
+        unselectedLabelColor: kGrayText,
+        indicatorColor: kGreen,
+        dividerColor: kTerminalBorder,
+        labelStyle: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 12),
+        unselectedLabelStyle: TextStyle(fontFamily: 'monospace', fontSize: 12),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: kAccent,
-        linearTrackColor: kNavyLight,
+        color: kGreen,
+        linearTrackColor: kTerminalBorder,
       ),
-      snackBarTheme: const SnackBarThemeData(
-        backgroundColor: kNavyLight,
-        contentTextStyle: TextStyle(color: kWhite),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: kTerminalCard,
+        contentTextStyle: const TextStyle(color: kGreen, fontFamily: 'monospace', fontSize: 12),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: const BorderSide(color: kGreenDim)),
+        behavior: SnackBarBehavior.floating,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: kTerminalCard,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: const BorderSide(color: kGreen)),
+        titleTextStyle: const TextStyle(
+            color: kGreen, fontFamily: 'monospace',
+            fontWeight: FontWeight.bold, fontSize: 15),
+        contentTextStyle: const TextStyle(
+            color: kWhiteText, fontFamily: 'monospace', fontSize: 13),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: kTerminalCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+          side: BorderSide(color: kGreenDim),
+        ),
       ),
       textTheme: const TextTheme(
-        displayLarge: TextStyle(color: kWhite),
-        displayMedium: TextStyle(color: kWhite),
-        displaySmall: TextStyle(color: kWhite),
-        headlineLarge: TextStyle(color: kWhite),
-        headlineMedium: TextStyle(color: kWhite),
-        headlineSmall: TextStyle(color: kWhite, fontWeight: FontWeight.bold),
-        titleLarge: TextStyle(color: kWhite, fontWeight: FontWeight.bold),
-        titleMedium: TextStyle(color: kWhite, fontWeight: FontWeight.w600),
-        titleSmall: TextStyle(color: kOffWhite),
-        bodyLarge: TextStyle(color: kWhite),
-        bodyMedium: TextStyle(color: kOffWhite),
-        bodySmall: TextStyle(color: Color(0xFF8AAAD4)),
-        labelLarge: TextStyle(color: kWhite, fontWeight: FontWeight.w600),
-        labelMedium: TextStyle(color: kOffWhite),
-        labelSmall: TextStyle(color: Color(0xFF8AAAD4)),
+        displayLarge:  TextStyle(color: kWhiteText, fontFamily: 'monospace'),
+        displayMedium: TextStyle(color: kWhiteText, fontFamily: 'monospace'),
+        displaySmall:  TextStyle(color: kWhiteText, fontFamily: 'monospace'),
+        headlineLarge: TextStyle(color: kWhiteText, fontFamily: 'monospace'),
+        headlineMedium:TextStyle(color: kWhiteText, fontFamily: 'monospace'),
+        headlineSmall: TextStyle(color: kGreen, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+        titleLarge:    TextStyle(color: kGreen, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+        titleMedium:   TextStyle(color: kGreen, fontFamily: 'monospace', fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.5),
+        titleSmall:    TextStyle(color: kGrayText, fontFamily: 'monospace', fontSize: 12),
+        bodyLarge:     TextStyle(color: kWhiteText, fontFamily: 'monospace'),
+        bodyMedium:    TextStyle(color: kOffWhite, fontFamily: 'monospace', fontSize: 13),
+        bodySmall:     TextStyle(color: kGrayText, fontFamily: 'monospace', fontSize: 11),
+        labelLarge:    TextStyle(color: kGreen, fontFamily: 'monospace', fontWeight: FontWeight.bold, letterSpacing: 1),
+        labelMedium:   TextStyle(color: kOffWhite, fontFamily: 'monospace', fontSize: 12),
+        labelSmall:    TextStyle(color: kDimText, fontFamily: 'monospace', fontSize: 10, letterSpacing: 0.5),
       ),
     );
   }

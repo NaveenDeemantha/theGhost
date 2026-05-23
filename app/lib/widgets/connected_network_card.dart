@@ -14,129 +14,140 @@ class ConnectedNetworkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ssid = info['ssid']?.replaceAll('"', '') ?? 'Not connected';
+    final rawSsid = info['ssid'];
+    final ssid = (rawSsid == null || rawSsid.isEmpty) ? null : rawSsid;
     final ip = info['ip'] ?? '--';
     final gateway = info['gateway'] ?? '--';
-    final isConnected = info['ssid'] != null;
+    final isConnected = ssid != null;
 
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [kNavy, kNavyLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kAccent.withAlpha(80), width: 1),
+        color: kTerminalCard,
+        border: Border.all(color: isConnected ? kGreen : kRed, width: 1),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header bar
+          Container(
+            width: double.infinity,
+            color: isConnected ? kGreenFaint : kRed.withAlpha(30),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 8, height: 8,
                   decoration: BoxDecoration(
-                    color: kAccent.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    isConnected ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-                    color: kAccent,
-                    size: 20,
+                    color: isConnected ? kGreen : kRed,
+                    shape: BoxShape.circle,
+                    boxShadow: isConnected
+                        ? [BoxShadow(color: kGreen.withAlpha(120), blurRadius: 6)]
+                        : [],
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Connected Network',
-                          style: TextStyle(
-                              color: kAccent,
-                              fontSize: 11,
-                              letterSpacing: 1,
-                              fontWeight: FontWeight.w500)),
-                      Text(
-                        ssid,
-                        style: const TextStyle(
-                            color: kWhite,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                const SizedBox(width: 8),
+                Text(
+                  isConnected ? 'CONNECTED' : 'NOT CONNECTED',
+                  style: TextStyle(
+                    color: isConnected ? kGreen : kRed,
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
                   ),
                 ),
-                // QR Share button
+                const Spacer(),
                 if (isConnected)
-                  Tooltip(
-                    message: 'Share network QR',
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => WifiQrSheet.show(
-                        context,
-                        ssid: ssid,
-                        encryption: encryption,
+                  GestureDetector(
+                    onTap: () => WifiQrSheet.show(
+                        context, ssid: ssid, encryption: encryption),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: kGreenDim),
                       ),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: kAccent.withAlpha(20),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: kAccent.withAlpha(60)),
-                        ),
-                        child: const Icon(Icons.qr_code_rounded,
-                            color: kAccent, size: 18),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_rounded, color: kGreen, size: 12),
+                          SizedBox(width: 4),
+                          Text('SHARE', style: TextStyle(
+                              color: kGreen, fontSize: 9,
+                              fontFamily: 'monospace', letterSpacing: 1)),
+                        ],
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 14),
-            Row(
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _InfoChip(icon: Icons.computer_rounded, label: 'IP', value: ip),
-                const SizedBox(width: 8),
-                _InfoChip(
-                    icon: Icons.router_rounded, label: 'Gateway', value: gateway),
+                Text(
+                  ssid ?? 'NO WIFI CONNECTION',
+                  style: TextStyle(
+                    color: isConnected ? kWhiteText : kRed,
+                    fontFamily: 'monospace',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                if (!isConnected)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Enable WiFi and grant location permission',
+                      style: TextStyle(color: kGrayText, fontFamily: 'monospace', fontSize: 11),
+                    ),
+                  ),
+                if (isConnected) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _TermChip(label: 'IP', value: ip),
+                      const SizedBox(width: 8),
+                      _TermChip(label: 'GW', value: gateway),
+                      const SizedBox(width: 8),
+                      _TermChip(label: 'ENC', value: encryption),
+                    ],
+                  ),
+                ],
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
+class _TermChip extends StatelessWidget {
   final String label;
   final String value;
-  const _InfoChip(
-      {required this.icon, required this.label, required this.value});
+  const _TermChip({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: kNavyDark.withAlpha(180),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kNavyLight),
+        border: Border.all(color: kGreenDim.withAlpha(120)),
+        color: kGreenFaint,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: kAccent),
-          const SizedBox(width: 4),
-          Text('$label: $value',
-              style: const TextStyle(
-                  color: kOffWhite, fontSize: 11, fontFamily: 'monospace')),
-        ],
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+          children: [
+            TextSpan(text: '$label:', style: const TextStyle(color: kGrayText)),
+            TextSpan(text: value, style: const TextStyle(color: kGreen)),
+          ],
+        ),
       ),
     );
   }

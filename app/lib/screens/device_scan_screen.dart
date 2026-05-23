@@ -50,19 +50,12 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('New Network Detected'),
-        content: Text('You joined "$ssid". Scan for devices?'),
+        title: const Text('NEW NETWORK'),
+        content: Text('Joined "$ssid"\nRun device scan?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Later')),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _startScan();
-            },
-            child: const Text('Scan Now'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('SKIP')),
+          FilledButton(onPressed: () { Navigator.pop(ctx); _startScan(); },
+              child: const Text('SCAN')),
         ],
       ),
     );
@@ -71,20 +64,16 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
   Future<void> _startScan() async {
     _scanSub?.cancel();
     setState(() {
-      _scanning = true;
-      _error = null;
-      _devices = [];
-      _scanProgress = 0;
-      _scanTotal = 254;
+      _scanning = true; _error = null;
+      _devices = []; _scanProgress = 0; _scanTotal = 254;
     });
 
     try {
       final connectedInfo = await WifiService.getConnectedNetworkInfo();
       final gateway = connectedInfo['gateway'];
-      _connectedSsid = connectedInfo['ssid']?.replaceAll('"', '');
-
+      _connectedSsid = connectedInfo['ssid'];
       if (gateway == null) {
-        setState(() => _error = 'Not connected to a network.');
+        setState(() => _error = 'NOT CONNECTED TO ANY NETWORK');
         return;
       }
 
@@ -99,41 +88,31 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         connectedIp: connectedInfo['ip'],
       );
 
-      final nearbyNetworks = await WifiService.scanNearbyNetworks();
-      if (nearbyNetworks.isNotEmpty) {
-        final connected = nearbyNetworks.firstWhere(
-          (n) => n.ssid == _connectedSsid,
-          orElse: () => nearbyNetworks.first,
-        );
-        _connectedEncryption = connected.encryption;
+      final nearby = await WifiService.scanNearbyNetworks();
+      if (nearby.isNotEmpty) {
+        final conn = nearby.firstWhere(
+            (n) => n.ssid == _connectedSsid, orElse: () => nearby.first);
+        _connectedEncryption = conn.encryption;
       } else {
         _connectedEncryption = 'WPA2';
       }
 
-      final collectedDevices = <NetworkDevice>[];
+      final collected = <NetworkDevice>[];
 
-      // Stream: devices appear in the list as they are found
-      _scanSub = DeviceScanner.scanStream(
-        gateway,
+      _scanSub = DeviceScanner.scanStream(gateway,
         onProgress: (scanned, total) {
           if (mounted) {
-            setState(() {
-              _scanProgress = scanned;
-              _scanTotal = total;
-            });
+            setState(() { _scanProgress = scanned; _scanTotal = total; });
           }
         },
       ).listen(
         (device) {
           if (!mounted) return;
-          final tagged = previousIpSet.isNotEmpty &&
-                  !previousIpSet.contains(device.ipAddress)
-              ? device.copyWith(isNew: true)
-              : device;
-          collectedDevices.add(tagged);
+          final tagged = previousIpSet.isNotEmpty && !previousIpSet.contains(device.ipAddress)
+              ? device.copyWith(isNew: true) : device;
+          collected.add(tagged);
           setState(() {
-            // Keep cameras at top, rest by IP order
-            _devices = List.from(collectedDevices)
+            _devices = List.from(collected)
               ..sort((a, b) {
                 if (a.isCamera && !b.isCamera) return -1;
                 if (!a.isCamera && b.isCamera) return 1;
@@ -143,154 +122,133 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         },
         onDone: () async {
           if (mounted) { setState(() => _scanning = false); }
-          await ApiService.saveDevices(
-              sessionId, collectedDevices, _connectedSsid);
+          await ApiService.saveDevices(sessionId, collected, _connectedSsid);
         },
         onError: (e) {
           if (mounted) {
-            setState(() {
-              _error = e.toString();
-              _scanning = false;
-            });
+            setState(() { _error = e.toString(); _scanning = false; });
           }
         },
       );
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _scanning = false;
-        });
-      }
+      if (mounted) setState(() { _error = e.toString(); _scanning = false; });
     }
   }
 
   int _ipToInt(String ip) {
-    final parts = ip.split('.').map(int.parse).toList();
-    return (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+    final p = ip.split('.').map(int.parse).toList();
+    return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
   }
 
   Future<void> _exportReport() async {
     if (_devices.isEmpty) return;
-    final riskResult = RiskScoreService.calculate(
-      encryption: _connectedEncryption ?? 'WPA2',
-      devices: _devices,
-    );
+    final risk = RiskScoreService.calculate(
+        encryption: _connectedEncryption ?? 'WPA2', devices: _devices);
     try {
       await ReportService.generateAndShare(
         networkSsid: _connectedSsid ?? 'Unknown',
         encryption: _connectedEncryption ?? 'Unknown',
         connectedIp: '',
         devices: _devices,
-        riskResult: riskResult,
+        riskResult: risk,
         scanTime: DateTime.now(),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Report failed: $e')),
-        );
+            SnackBar(content: Text('REPORT_ERROR: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cameras = _devices.where((d) => d.isCamera).toList();
+    final cameras    = _devices.where((d) => d.isCamera).toList();
     final newDevices = _devices.where((d) => d.isNew).toList();
     final hasDevices = _devices.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: kNavyDark,
+      backgroundColor: kTerminalBg,
       appBar: AppBar(
-        title: const Text('Network Scanner',
-            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.3)),
-        centerTitle: true,
+        title: const Text('NETWORK_SCAN'),
         actions: [
           if (hasDevices)
             IconButton(
-              icon: const Icon(Icons.picture_as_pdf_rounded),
-              tooltip: 'Export Report',
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
               onPressed: _exportReport,
+              tooltip: 'Export Report',
             ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: kGreenDim.withAlpha(80)),
+        ),
       ),
       body: Column(
         children: [
-          // Network banner
+          // Network status bar
           if (_connectedSsid != null)
             Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: kNavy,
-                border: Border(bottom: BorderSide(color: kNavyLight)),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.wifi_rounded, size: 14, color: kAccent),
-                  const SizedBox(width: 6),
-                  Text(_connectedSsid!,
-                      style: const TextStyle(
-                          color: kAccent, fontWeight: FontWeight.w600, fontSize: 13)),
-                  const Spacer(),
-                  if (_scanning)
-                    Text('$_scanProgress / $_scanTotal',
-                        style: const TextStyle(
-                            color: Color(0xFF4A6080), fontSize: 12)),
-                ],
-              ),
+              color: kGreenFaint,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(children: [
+                const Icon(Icons.wifi_rounded, size: 12, color: kGreen),
+                const SizedBox(width: 6),
+                Text(_connectedSsid!,
+                    style: const TextStyle(color: kGreen, fontFamily: 'monospace',
+                        fontSize: 11, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                if (_scanning)
+                  Text('$_scanProgress/$_scanTotal',
+                      style: const TextStyle(color: kGrayText,
+                          fontFamily: 'monospace', fontSize: 10)),
+              ]),
             ),
 
           // Progress bar
           if (_scanning)
-            ClipRect(
-              child: LinearProgressIndicator(
-                value: _scanTotal > 0 ? _scanProgress / _scanTotal : null,
-                minHeight: 3,
-                backgroundColor: kNavyLight,
-                valueColor: const AlwaysStoppedAnimation<Color>(kAccent),
-              ),
+            LinearProgressIndicator(
+              value: _scanTotal > 0 ? _scanProgress / _scanTotal : null,
+              minHeight: 2,
+              backgroundColor: kTerminalBorder,
+              valueColor: const AlwaysStoppedAnimation<Color>(kGreen),
             ),
 
           // Alert banners
-          if (cameras.isNotEmpty) _CameraBanner(count: cameras.length),
-          if (newDevices.isNotEmpty) _NewDeviceBanner(count: newDevices.length),
+          if (cameras.isNotEmpty)
+            _AlertBanner(
+              '${cameras.length} CAMERA${cameras.length > 1 ? "S" : ""} DETECTED ON NETWORK',
+              color: kOrange, icon: Icons.videocam_rounded),
+          if (newDevices.isNotEmpty)
+            _AlertBanner('${newDevices.length} NEW DEVICE${newDevices.length > 1 ? "S" : ""} SINCE LAST SCAN',
+                color: kCyan, icon: Icons.new_releases_rounded),
 
-          // Stats row when devices found
-          if (hasDevices) _DeviceStatsRow(devices: _devices),
+          // Stats pills
+          if (hasDevices) _StatsRow(devices: _devices),
 
           // Error
           if (_error != null)
             Container(
               margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: kErrorRed.withAlpha(20),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kErrorRed.withAlpha(80)),
-              ),
-              child: Row(children: [
-                const Icon(Icons.error_outline, color: kErrorRed, size: 18),
-                const SizedBox(width: 8),
-                Expanded(child: Text(_error!,
-                    style: const TextStyle(color: kErrorRed, fontSize: 13))),
-              ]),
+                  border: Border.all(color: kRed), color: kRed.withAlpha(15)),
+              child: Text('ERROR: $_error',
+                  style: const TextStyle(color: kRed,
+                      fontFamily: 'monospace', fontSize: 11)),
             ),
 
-          // Device list or empty state
           Expanded(
             child: !hasDevices
                 ? _scanning
-                    ? _ScanningEmptyState(progress: _scanProgress, total: _scanTotal)
-                    : const _IdleEmptyState()
+                    ? _ScanningState(progress: _scanProgress, total: _scanTotal)
+                    : const _IdleState()
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 100),
                     itemCount: _devices.length,
-                    itemBuilder: (context, i) => InkWell(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(
-                              builder: (_) => DeviceDetailScreen(device: _devices[i]))),
+                    itemBuilder: (ctx, i) => GestureDetector(
+                      onTap: () => Navigator.push(ctx, MaterialPageRoute(
+                          builder: (_) => DeviceDetailScreen(device: _devices[i]))),
                       child: DeviceTile(device: _devices[i]),
                     ),
                   ),
@@ -299,186 +257,137 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _scanning ? null : _startScan,
-        backgroundColor: _scanning ? kNavyLight : kAccent,
+        backgroundColor: _scanning ? kTerminalBorder : kGreen,
+        foregroundColor: kTerminalBg,
         icon: _scanning
-            ? const SizedBox(width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Icon(Icons.radar_rounded),
-        label: Text(_scanning ? 'Scanning...' : 'Scan Network',
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+            ? const SizedBox(width: 16, height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: kTerminalBg))
+            : const Icon(Icons.radar_rounded, size: 18),
+        label: Text(_scanning ? 'SCANNING...' : 'SCAN NETWORK',
+            style: const TextStyle(fontFamily: 'monospace',
+                fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 12)),
+        shape: const RoundedRectangleBorder(),
       ),
     );
   }
 }
 
-class _DeviceStatsRow extends StatelessWidget {
-  final List<NetworkDevice> devices;
-  const _DeviceStatsRow({required this.devices});
-
-  @override
-  Widget build(BuildContext context) {
-    final cameras = devices.where((d) => d.isCamera).length;
-    final routers = devices.where((d) => d.deviceType.name == 'router').length;
-    final iot = devices.where((d) => d.deviceType.name == 'iotDevice').length;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          _StatPill(label: '${devices.length}', sub: 'Total', color: kAccent),
-          const SizedBox(width: 8),
-          if (cameras > 0) ...[
-            _StatPill(label: '$cameras', sub: 'Camera${cameras > 1 ? "s" : ""}', color: kErrorRed),
-            const SizedBox(width: 8),
-          ],
-          if (routers > 0) ...[
-            _StatPill(label: '$routers', sub: 'Router${routers > 1 ? "s" : ""}', color: const Color(0xFF5A7AAF)),
-            const SizedBox(width: 8),
-          ],
-          if (iot > 0)
-            _StatPill(label: '$iot', sub: 'IoT', color: const Color(0xFFFF8F00)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatPill extends StatelessWidget {
-  final String label;
-  final String sub;
+class _AlertBanner extends StatelessWidget {
+  final String message;
   final Color color;
-  const _StatPill({required this.label, required this.sub, required this.color});
+  final IconData icon;
+  const _AlertBanner(this.message, {required this.color, required this.icon});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withAlpha(20),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withAlpha(60)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(width: 4),
-          Text(sub, style: TextStyle(color: color.withAlpha(180), fontSize: 11)),
-        ],
-      ),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      color: color.withAlpha(20),
+      child: Row(children: [
+        Icon(icon, color: color, size: 13),
+        const SizedBox(width: 8),
+        Text(message, style: TextStyle(color: color,
+            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold)),
+      ]),
     );
   }
 }
 
-class _ScanningEmptyState extends StatelessWidget {
+class _StatsRow extends StatelessWidget {
+  final List<NetworkDevice> devices;
+  const _StatsRow({required this.devices});
+
+  @override
+  Widget build(BuildContext context) {
+    final cameras  = devices.where((d) => d.isCamera).length;
+    final routers  = devices.where((d) => d.deviceType.name == 'router').length;
+    final iot      = devices.where((d) => d.deviceType.name == 'iotDevice').length;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Wrap(spacing: 8, runSpacing: 6, children: [
+        _Pill('${devices.length} HOSTS', kGreen),
+        if (cameras > 0) _Pill('$cameras CAM${cameras > 1 ? "S" : ""}', kOrange),
+        if (routers > 0) _Pill('$routers ROUTER${routers > 1 ? "S" : ""}', kCyan),
+        if (iot > 0)     _Pill('$iot IOT', kGrayText),
+      ]),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Pill(this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        border: Border.all(color: color.withAlpha(80)),
+        color: color.withAlpha(15),
+      ),
+      child: Text(label,
+          style: TextStyle(color: color, fontSize: 10,
+              fontFamily: 'monospace', letterSpacing: 0.5)),
+    );
+  }
+}
+
+class _ScanningState extends StatelessWidget {
   final int progress;
   final int total;
-  const _ScanningEmptyState({required this.progress, required this.total});
+  const _ScanningState({required this.progress, required this.total});
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 72,
-            height: 72,
-            child: CircularProgressIndicator(strokeWidth: 3, color: kAccent),
-          ),
-          const SizedBox(height: 20),
-          const Text('Scanning network...',
-              style: TextStyle(color: kWhite, fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Text('$progress of $total hosts checked',
-              style: const TextStyle(color: Color(0xFF4A6080), fontSize: 13)),
-          const SizedBox(height: 4),
-          const Text('Devices appear as they are found',
-              style: TextStyle(color: Color(0xFF4A6080), fontSize: 12)),
-        ],
-      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(
+          width: 60, height: 60,
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: kGreen),
+        ),
+        const SizedBox(height: 20),
+        const Text('SCANNING NETWORK...',
+            style: TextStyle(color: kGreen, fontFamily: 'monospace',
+                fontSize: 13, letterSpacing: 2, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Text('$progress / $total HOSTS CHECKED',
+            style: const TextStyle(color: kGrayText, fontFamily: 'monospace', fontSize: 11)),
+        const SizedBox(height: 4),
+        const Text('DEVICES APPEAR IN REAL-TIME',
+            style: TextStyle(color: kDimText, fontFamily: 'monospace', fontSize: 10)),
+      ]),
     );
   }
 }
 
-class _IdleEmptyState extends StatelessWidget {
-  const _IdleEmptyState();
+class _IdleState extends StatelessWidget {
+  const _IdleState();
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: kNavy,
-              shape: BoxShape.circle,
-              border: Border.all(color: kNavyLight, width: 2),
-            ),
-            child: const Icon(Icons.radar_rounded, size: 40, color: Color(0xFF4A6080)),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(
+            border: Border.all(color: kGreenDim, width: 1),
+            shape: BoxShape.rectangle,
+            color: kGreenFaint,
           ),
-          const SizedBox(height: 20),
-          const Text('Ready to Scan',
-              style: TextStyle(color: kWhite, fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          const Text('Tap the button below to discover\nall devices on your network',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF4A6080), fontSize: 13, height: 1.5)),
-        ],
-      ),
-    );
-  }
-}
-
-class _CameraBanner extends StatelessWidget {
-  final int count;
-  const _CameraBanner({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      color: cs.errorContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Icon(Icons.videocam, color: cs.error),
-          const SizedBox(width: 8),
-          Text(
-            '$count camera${count > 1 ? "s" : ""} detected on this network!',
-            style: TextStyle(color: cs.error, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NewDeviceBanner extends StatelessWidget {
-  final int count;
-  const _NewDeviceBanner({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: Colors.green.shade100,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          const Icon(Icons.new_releases, color: Colors.green),
-          const SizedBox(width: 8),
-          Text(
-            '$count new device${count > 1 ? "s" : ""} since last scan',
-            style: const TextStyle(
-                color: Colors.green, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
+          child: const Icon(Icons.radar_rounded, size: 40, color: kGreenDim),
+        ),
+        const SizedBox(height: 20),
+        const Text('READY',
+            style: TextStyle(color: kGreen, fontFamily: 'monospace',
+                fontSize: 18, letterSpacing: 4, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        const Text('PRESS SCAN TO SWEEP THE NETWORK',
+            style: TextStyle(color: kGrayText, fontFamily: 'monospace', fontSize: 11, letterSpacing: 1)),
+      ]),
     );
   }
 }

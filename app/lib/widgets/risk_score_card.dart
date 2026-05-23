@@ -14,14 +14,14 @@ class RiskScoreCard extends StatefulWidget {
 class _RiskScoreCardState extends State<RiskScoreCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scoreAnim;
+  late Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200));
-    _scoreAnim = Tween<double>(begin: 0, end: widget.result.score / 100)
+        vsync: this, duration: const Duration(milliseconds: 1400));
+    _anim = Tween<double>(begin: 0, end: widget.result.score / 100)
         .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
   }
@@ -30,14 +30,10 @@ class _RiskScoreCardState extends State<RiskScoreCard>
   void didUpdateWidget(RiskScoreCard old) {
     super.didUpdateWidget(old);
     if (old.result.score != widget.result.score) {
-      _scoreAnim = Tween<double>(
-              begin: old.result.score / 100,
-              end: widget.result.score / 100)
-          .animate(
-              CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-      _controller
-        ..reset()
-        ..forward();
+      _anim = Tween<double>(
+              begin: old.result.score / 100, end: widget.result.score / 100)
+          .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+      _controller..reset()..forward();
     }
   }
 
@@ -47,218 +43,136 @@ class _RiskScoreCardState extends State<RiskScoreCard>
     super.dispose();
   }
 
+  Color _levelColor(RiskLevel l) {
+    switch (l) {
+      case RiskLevel.low:      return kGreen;
+      case RiskLevel.medium:   return kCyan;
+      case RiskLevel.high:     return kOrange;
+      case RiskLevel.critical: return kRed;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final color = Color(widget.result.level.color);
+    final color = _levelColor(widget.result.level);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: kNavy,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withAlpha(60), width: 1),
+        color: kTerminalCard,
+        border: Border.all(color: color.withAlpha(80)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            color: color.withAlpha(20),
+            child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(25),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.shield, color: color, size: 18),
-                ),
-                const SizedBox(width: 10),
-                Text('Network Risk Assessment',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(color: kOffWhite, letterSpacing: 0.3)),
+                const Icon(Icons.terminal_rounded, size: 12, color: kGrayText),
+                const SizedBox(width: 6),
+                const Text('THREAT_ASSESSMENT.exe',
+                    style: TextStyle(color: kGrayText, fontSize: 10,
+                        fontFamily: 'monospace', letterSpacing: 1)),
                 const Spacer(),
-                _LevelBadge(level: widget.result.level, color: color),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(border: Border.all(color: color)),
+                  child: Text(
+                    widget.result.level.label.toUpperCase(),
+                    style: TextStyle(color: color, fontSize: 9,
+                        fontFamily: 'monospace', fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-
-            // Gauge + factors row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
               children: [
                 // Arc gauge
                 AnimatedBuilder(
-                  animation: _scoreAnim,
-                  builder: (_, __) => SizedBox(
-                    width: 110,
-                    height: 70,
-                    child: CustomPaint(
-                      painter: _ArcGaugePainter(
-                        value: _scoreAnim.value,
-                        color: color,
-                        trackColor: kNavyLight,
-                      ),
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            '${(widget.result.score * _scoreAnim.value / (widget.result.score / 100)).round()}',
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              height: 1,
-                            ),
+                  animation: _anim,
+                  builder: (_, __) {
+                    final displayed = (widget.result.score * _anim.value).round();
+                    return SizedBox(
+                      width: 100,
+                      height: 64,
+                      child: CustomPaint(
+                        painter: _ArcPainter(value: _anim.value, color: color),
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text('$displayed',
+                                style: TextStyle(
+                                    color: color,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 22)),
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-                const SizedBox(width: 16),
-
-                // Factors
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: widget.result.factors
-                        .map((f) => _FactorRow(text: f, color: color))
-                        .toList(),
+                    children: widget.result.factors.map((f) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('> ', style: TextStyle(color: color.withAlpha(150),
+                              fontFamily: 'monospace', fontSize: 11)),
+                          Expanded(
+                            child: Text(f, style: const TextStyle(
+                                color: kGrayText, fontFamily: 'monospace', fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ArcGaugePainter extends CustomPainter {
-  final double value;
-  final Color color;
-  final Color trackColor;
-
-  _ArcGaugePainter(
-      {required this.value, required this.color, required this.trackColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const strokeWidth = 10.0;
-    final rect = Rect.fromLTWH(
-        strokeWidth / 2, 0, size.width - strokeWidth, size.height * 2 - strokeWidth);
-    const startAngle = pi;
-    const sweepAngle = pi;
-
-    // Track
-    canvas.drawArc(
-      rect,
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..color = trackColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Value arc
-    if (value > 0) {
-      canvas.drawArc(
-        rect,
-        startAngle,
-        sweepAngle * value,
-        false,
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-
-    // Labels
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    for (final entry in {'0': 0.0, '100': 1.0}.entries) {
-      textPainter.text = TextSpan(
-        text: entry.key,
-        style: TextStyle(color: trackColor, fontSize: 10),
-      );
-      textPainter.layout();
-      final angle = startAngle + sweepAngle * entry.value;
-      final r = size.width / 2 - strokeWidth * 1.8;
-      final cx = size.width / 2 + r * cos(angle) - textPainter.width / 2;
-      final cy = size.height + r * sin(angle) - textPainter.height / 2;
-      textPainter.paint(canvas, Offset(cx, cy));
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ArcGaugePainter old) =>
-      old.value != value || old.color != color;
-}
-
-class _LevelBadge extends StatelessWidget {
-  final RiskLevel level;
-  final Color color;
-  const _LevelBadge({required this.level, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withAlpha(100)),
-      ),
-      child: Text(
-        level.label.toUpperCase(),
-        style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 10,
-            letterSpacing: 0.8),
-      ),
-    );
-  }
-}
-
-class _FactorRow extends StatelessWidget {
-  final String text;
-  final Color color;
-  const _FactorRow({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 5),
-            child: Container(
-              width: 5,
-              height: 5,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(text,
-                style: const TextStyle(
-                    color: Color(0xFF8AAAD4), fontSize: 12, height: 1.4)),
           ),
         ],
       ),
     );
   }
+}
+
+class _ArcPainter extends CustomPainter {
+  final double value;
+  final Color color;
+  _ArcPainter({required this.value, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const sw = 8.0;
+    final rect = Rect.fromLTWH(sw / 2, 0, size.width - sw, (size.height - sw) * 2);
+    final trackPaint = Paint()
+      ..color = kTerminalBorder
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = sw
+      ..strokeCap = StrokeCap.butt;
+    final valuePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = sw
+      ..strokeCap = StrokeCap.butt;
+
+    canvas.drawArc(rect, pi, pi, false, trackPaint);
+    if (value > 0) canvas.drawArc(rect, pi, pi * value, false, valuePaint);
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter old) => old.value != value || old.color != color;
 }

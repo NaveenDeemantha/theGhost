@@ -1,12 +1,17 @@
 import 'package:wifi_scan/wifi_scan.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:wifi_iot/wifi_iot.dart' hide WifiNetwork;
+import 'package:permission_handler/permission_handler.dart';
 import '../models/wifi_network.dart';
 
 class WifiService {
   static final _networkInfo = NetworkInfo();
 
   static Future<List<WifiNetwork>> scanNearbyNetworks() async {
+    // Ensure location permission is granted before scanning
+    final locStatus = await Permission.location.status;
+    if (!locStatus.isGranted) await Permission.location.request();
+
     final can = await WiFiScan.instance.canStartScan(askPermissions: true);
     if (can != CanStartScan.yes) return [];
 
@@ -17,7 +22,7 @@ class WifiService {
     final results = await WiFiScan.instance.getScannedResults();
 
     return results.map((ap) {
-      final caps = ap.capabilities ?? '';
+      final caps = ap.capabilities;
       String encryption = 'Open';
       if (caps.contains('WPA3')) {
         encryption = 'WPA3';
@@ -28,7 +33,6 @@ class WifiService {
       } else if (caps.contains('WEP')) {
         encryption = 'WEP';
       }
-
       return WifiNetwork(
         ssid: ap.ssid,
         bssid: ap.bssid,
@@ -41,12 +45,33 @@ class WifiService {
   }
 
   static Future<Map<String, String?>> getConnectedNetworkInfo() async {
+    // Ensure permission before reading network info
+    await Permission.location.request();
+
+    String? ssid     = await _networkInfo.getWifiName();
+    String? bssid    = await _networkInfo.getWifiBSSID();
+    String? ip       = await _networkInfo.getWifiIP();
+    String? gateway  = await _networkInfo.getWifiGatewayIP();
+    String? subnet   = await _networkInfo.getWifiSubmask();
+
+    // Strip surrounding quotes Android sometimes adds to SSID
+    ssid = ssid?.replaceAll('"', '').trim();
+    if (ssid == null || ssid.isEmpty || ssid == '<unknown ssid>') ssid = null;
+
+    // If gateway missing, derive it from the IP (assume /24)
+    if ((gateway == null || gateway.isEmpty) && ip != null && ip.isNotEmpty) {
+      final parts = ip.split('.');
+      if (parts.length == 4) {
+        gateway = '${parts[0]}.${parts[1]}.${parts[2]}.1';
+      }
+    }
+
     return {
-      'ssid': await _networkInfo.getWifiName(),
-      'bssid': await _networkInfo.getWifiBSSID(),
-      'ip': await _networkInfo.getWifiIP(),
-      'gateway': await _networkInfo.getWifiGatewayIP(),
-      'subnet': await _networkInfo.getWifiSubmask(),
+      'ssid': ssid,
+      'bssid': bssid,
+      'ip': ip,
+      'gateway': gateway,
+      'subnet': subnet,
     };
   }
 
@@ -57,7 +82,6 @@ class WifiService {
   }) async {
     try {
       final isOpen = encryption == 'Open';
-
       NetworkSecurity security;
       if (isOpen) {
         security = NetworkSecurity.NONE;
@@ -73,11 +97,10 @@ class WifiService {
         security: security,
         joinOnce: false,
         withInternet: true,
-      );
+      ).timeout(const Duration(seconds: 15));
 
-      if (success) return WifiConnectionResult.success;
-      return WifiConnectionResult.failed;
-    } catch (e) {
+      return success ? WifiConnectionResult.success : WifiConnectionResult.failed;
+    } catch (_) {
       return WifiConnectionResult.error;
     }
   }

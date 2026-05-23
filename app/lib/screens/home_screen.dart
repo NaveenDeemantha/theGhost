@@ -22,99 +22,63 @@ class _HomeScreenState extends State<HomeScreen> {
     HistoryScreen(),
   ];
 
+  static const _navItems = [
+    (icon: Icons.wifi_find_rounded,   label: 'NETWORKS'),
+    (icon: Icons.radar_rounded,        label: 'SCANNER'),
+    (icon: Icons.videocam_rounded,     label: 'CAMERAS'),
+    (icon: Icons.history_rounded,      label: 'HISTORY'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: kNavyDark,
-          border: Border(top: BorderSide(color: kNavyLight, width: 1)),
+          color: kTerminalBg,
+          border: Border(top: BorderSide(color: kGreenDim, width: 1)),
         ),
         child: SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _NavItem(
-                  icon: Icons.wifi_find_rounded,
-                  label: 'Networks',
-                  selected: _currentIndex == 0,
-                  onTap: () => setState(() => _currentIndex = 0),
+          child: Row(
+            children: List.generate(_navItems.length, (i) {
+              final item = _navItems[i];
+              final selected = _currentIndex == i;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _currentIndex = i),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: selected ? kGreenFaint : Colors.transparent,
+                      border: selected
+                          ? const Border(top: BorderSide(color: kGreen, width: 2))
+                          : null,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(item.icon,
+                            color: selected ? kGreen : kDimText, size: 20),
+                        const SizedBox(height: 3),
+                        Text(item.label,
+                            style: TextStyle(
+                              color: selected ? kGreen : kDimText,
+                              fontSize: 8,
+                              fontFamily: 'monospace',
+                              letterSpacing: 1,
+                              fontWeight: selected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            )),
+                      ],
+                    ),
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.radar_rounded,
-                  label: 'Scanner',
-                  selected: _currentIndex == 1,
-                  onTap: () => setState(() => _currentIndex = 1),
-                ),
-                _NavItem(
-                  icon: Icons.videocam_rounded,
-                  label: 'Cameras',
-                  selected: _currentIndex == 2,
-                  onTap: () => setState(() => _currentIndex = 2),
-                ),
-                _NavItem(
-                  icon: Icons.history_rounded,
-                  label: 'History',
-                  selected: _currentIndex == 3,
-                  onTap: () => setState(() => _currentIndex = 3),
-                ),
-              ],
-            ),
+              );
+            }),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? kAccent.withAlpha(20) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                color: selected ? kAccent : const Color(0xFF4A6080),
-                size: 22),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? kAccent : const Color(0xFF4A6080),
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
         ),
       ),
     );
